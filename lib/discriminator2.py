@@ -19,7 +19,7 @@ def ResBlock(name, inputs):
 
 
 def discriminator_X(inputs):
-    output = tf.transpose(inputs, [0,2,1])
+    output = tf.transpose(a=inputs, perm=[0,2,1])
     print(tf.g)
     output = tflib.ops.conv1d.Conv1D('discriminator.Input', 64, DIM, 1, output)
     output = ResBlock('discriminator.1', output)

@@ -1,6 +1,8 @@
 import argparse
 from cycle_gan import cycle_gan
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
+tf.compat.v1.disable_v2_behavior()
 
 def parse():
     #best: 0.5,0.01
@@ -23,7 +25,7 @@ def parse():
     return args
 
 def run(args):
-    sess = tf.Session()
+    sess = tf.compat.v1.Session()
     if args.test:
         args.mode='test'
     model = cycle_gan(args,sess)

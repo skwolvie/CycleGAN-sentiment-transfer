@@ -2,8 +2,6 @@
 This is the module that given long text sequence generates short text sequence
 """
 import tensorflow as tf
-import tensorflow_addons as tfa
-
 from lib.ops import *
 
 def seq2seq(
@@ -39,7 +37,7 @@ def seq2seq(
         encoder_outputs = tf.concat([output_fw,output_bw],2)
         encoder_state_c = tf.concat((state_fw.c, state_bw.c), 1)
         encoder_state_h = tf.concat((state_fw.h, state_bw.h), 1)
-        encoder_state = tf.compat.v1.nn.rnn_cell.LSTMStateTuple(c=encoder_state_c, h=encoder_state_h)
+        encoder_state = tf.nn.rnn_cell.LSTMStateTuple(c=encoder_state_c, h=encoder_state_h)
 
 
     with tf.compat.v1.variable_scope("decoder") as scope:
@@ -51,7 +49,7 @@ def seq2seq(
         decoder_inputs = batch_to_time_major(decoder_inputs)
         
         #the decoder
-        decoder_outputs,decoder_state = tfa.seq2seq.decoder(
+        decoder_outputs,decoder_state = tf.contrib.legacy_seq2seq.attention_decoder(
             decoder_inputs = decoder_inputs,
             initial_state = encoder_state,
             attention_states = encoder_outputs,

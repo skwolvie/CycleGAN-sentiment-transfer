@@ -24,7 +24,7 @@ def Conv2D(name, input_dim, output_dim, filter_size, inputs, he_init=True, mask_
 
     returns: tensor of shape (batch size, num channels, height, width)
     """
-    with tf.name_scope(name) as scope:
+    with tf.compat.v1.name_scope(name) as scope:
 
         if mask_type is not None:
             mask_type, mask_n_channels = mask_type
@@ -95,17 +95,17 @@ def Conv2D(name, input_dim, output_dim, filter_size, inputs, he_init=True, mask_
                 name + '.g',
                 norm_values
             )
-            with tf.name_scope('weightnorm') as scope:
-                norms = tf.sqrt(tf.reduce_sum(tf.square(filters), reduction_indices=[0,1,2]))
+            with tf.compat.v1.name_scope('weightnorm') as scope:
+                norms = tf.sqrt(tf.reduce_sum(input_tensor=tf.square(filters), axis=[0,1,2]))
                 filters = filters * (target_norms / norms)
 
         if mask_type is not None:
-            with tf.name_scope('filter_mask'):
+            with tf.compat.v1.name_scope('filter_mask'):
                 filters = filters * mask
 
         result = tf.nn.conv2d(
             input=inputs, 
-            filter=filters, 
+            filters=filters, 
             strides=[1, 1, stride, stride],
             padding='SAME',
             data_format='NCHW'

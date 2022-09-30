@@ -19,18 +19,18 @@ def pointer_network(
     inputs should be word id and outputs will be softmax over words
     """
     input_one_hot = tf.one_hot(encoder_inputs,vocab_size)
-    input_embedded = tf.nn.embedding_lookup(word_embedding_matrix,encoder_inputs)
+    input_embedded = tf.nn.embedding_lookup(params=word_embedding_matrix,ids=encoder_inputs)
 
-    encoder_inputs_embedded = tf.nn.embedding_lookup(word_embedding_matrix,encoder_inputs)
+    encoder_inputs_embedded = tf.nn.embedding_lookup(params=word_embedding_matrix,ids=encoder_inputs)
     encoder_shape = encoder_inputs.get_shape().as_list()
 
     decoder_inputs = batch_to_time_major(decoder_inputs)
 
-    with tf.variable_scope("generator_encoder") as scope:
-        fw_cell = tf.contrib.rnn.LSTMCell(num_units=latent_dim, state_is_tuple=True)
-        bw_cell = tf.contrib.rnn.LSTMCell(num_units=latent_dim, state_is_tuple=True)
+    with tf.compat.v1.variable_scope("generator_encoder") as scope:
+        fw_cell = tf.compat.v1.nn.rnn_cell.LSTMCell(num_units=latent_dim, state_is_tuple=True)
+        bw_cell = tf.compat.v1.nn.rnn_cell.LSTMCell(num_units=latent_dim, state_is_tuple=True)
         #bi-lstm encoder
-        encoder_outputs, state = tf.nn.bidirectional_dynamic_rnn(
+        encoder_outputs, state = tf.compat.v1.nn.bidirectional_dynamic_rnn(
             cell_fw = fw_cell,
             cell_bw = bw_cell,
             dtype = tf.float32,
@@ -44,24 +44,24 @@ def pointer_network(
         encoder_outputs = tf.concat([output_fw,output_bw],2)      #not pretty sure whether to reverse output_bw
         encoder_state_c = tf.concat((state_fw.c, state_bw.c), 1)
         encoder_state_h = tf.concat((state_fw.h, state_bw.h), 1)
-        encoder_state = tf.contrib.rnn.LSTMStateTuple(c=encoder_state_c, h=encoder_state_h)
+        encoder_state = tf.nn.rnn_cell.LSTMStateTuple(c=encoder_state_c, h=encoder_state_h)
 
     #pointer network
-    with tf.variable_scope("generator_pointer_decoder") as scope:
+    with tf.compat.v1.variable_scope("generator_pointer_decoder") as scope:
 
         #variables
-        V = tf.get_variable(name="V", shape=[latent_dim, 1])
-        W_h = tf.get_variable(name="W_h", shape=[latent_dim * 2, latent_dim])
-        W_s = tf.get_variable(name="W_s", shape=[latent_dim * 2, latent_dim])
-        b_attn = tf.get_variable(name="b_attn", shape=[latent_dim])
-        w_c = tf.get_variable(name="w_c", shape=[latent_dim])
+        V = tf.compat.v1.get_variable(name="V", shape=[latent_dim, 1])
+        W_h = tf.compat.v1.get_variable(name="W_h", shape=[latent_dim * 2, latent_dim])
+        W_s = tf.compat.v1.get_variable(name="W_s", shape=[latent_dim * 2, latent_dim])
+        b_attn = tf.compat.v1.get_variable(name="b_attn", shape=[latent_dim])
+        w_c = tf.compat.v1.get_variable(name="w_c", shape=[latent_dim])
 
         #cell
-        cell = tf.contrib.rnn.LSTMCell(num_units=latent_dim*2, state_is_tuple=True)
+        cell = tf.compat.v1.nn.rnn_cell.LSTMCell(num_units=latent_dim*2, state_is_tuple=True)
 
         #functions
         def input_projection(raw_input, last_attention_context):
-            return tf.layers.dense(tf.concat([raw_input, last_attention_context], axis=1), latent_dim*2, name="input_projection")
+            return tf.compat.v1.layers.dense(tf.concat([raw_input, last_attention_context], axis=1), latent_dim*2, name="input_projection")
 
 
         def do_attention(state,c_t):
@@ -85,8 +85,8 @@ def pointer_network(
 
 
         def get_vocab_distribution(state,attention_context):
-            hidden = tf.layers.dense(tf.concat([state,attention_context],axis=1),200,name='P_vocab_projection1')
-            vocab_weight = tf.layers.dense(hidden,vocab_size,name='P_vocab_projection2')
+            hidden = tf.compat.v1.layers.dense(tf.concat([state,attention_context],axis=1),200,name='P_vocab_projection1')
+            vocab_weight = tf.compat.v1.layers.dense(hidden,vocab_size,name='P_vocab_projection2')
             return tf.nn.softmax(vocab_weight)
 
 
@@ -109,13 +109,13 @@ def pointer_network(
                 batch_id = tf.cast(tf.range(encoder_shape[0]),dtype=tf.int64)
                 abs_id = tf.concat([tf.expand_dims(batch_id,axis=1),tf.expand_dims(last_output_id,axis=1)],axis=1)
                 last_output_prob = tf.gather_nd(decoder_outputs[-1],abs_id)
-                input_t = tf.nn.embedding_lookup(word_embedding_matrix,last_output_id)
+                input_t = tf.nn.embedding_lookup(params=word_embedding_matrix,ids=last_output_id)
             elif i > 0 and feed_previous:
-                last_output_id = tf.argmax(decoder_outputs[-1],axis=-1)
+                last_output_id = tf.argmax(input=decoder_outputs[-1],axis=-1)
                 batch_id = tf.range(encoder_shape[0])
                 abs_id = tf.concat([tf.expand_dims(last_output_id,axis=1),tf.expand_dims(last_output_id,axis=1)],axis=1)
                 last_output_prob = tf.gather_nd(decoder_outputs[-1],abs_id)
-                input_t = tf.nn.embedding_lookup(word_embedding_matrix,last_output_id)
+                input_t = tf.nn.embedding_lookup(params=word_embedding_matrix,ids=last_output_id)
             else:
                 input_t = decoder_inputs[i]
 
@@ -127,17 +127,17 @@ def pointer_network(
             attention_weight,attention_context = do_attention(state.h,attention_coverage)
             attention_coverage += attention_weight
 
-            P_gen = tf.sigmoid(tf.layers.dense( tf.concat([input_t,state.h,attention_context], axis=1), 1, name='P_gen'))
+            P_gen = tf.sigmoid(tf.compat.v1.layers.dense( tf.concat([input_t,state.h,attention_context], axis=1), 1, name='P_gen'))
             output_t = P_gen*get_vocab_distribution(state.h,attention_context) + (1 - P_gen)*get_pointer_distribution(attention_weight)
             #decoder outputs: shape=[time_step,batch_size,vocab_size] value is the probability of vocabulary         
             decoder_outputs.append(output_t)
 
         if feed_previous:
-            real_outputs_ids.append(tf.argmax(decoder_outputs[-1],axis=-1))
-            real_outputs_probs.append(tf.reduce_max(decoder_outputs[-1],axis=1))
+            real_outputs_ids.append(tf.argmax(input=decoder_outputs[-1],axis=-1))
+            real_outputs_probs.append(tf.reduce_max(input_tensor=decoder_outputs[-1],axis=1))
         else:
-            real_outputs_ids = [tf.argmax(output,axis=-1) for output in decoder_outputs]
-            real_outputs_probs = [tf.reduce_max(output,axis=-1) for output in decoder_outputs]
+            real_outputs_ids = [tf.argmax(input=output,axis=-1) for output in decoder_outputs]
+            real_outputs_probs = [tf.reduce_max(input_tensor=output,axis=-1) for output in decoder_outputs]
 
         print('real outputs ids:',real_outputs_ids[0].get_shape().as_list())
         print('decoder:',len(decoder_outputs),decoder_outputs[0].get_shape().as_list())

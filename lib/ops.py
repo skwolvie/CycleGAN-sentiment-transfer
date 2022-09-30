@@ -26,14 +26,14 @@ def conv1d( inputs,
             name,
             stride=1,
             padding='SAME',
-            initializer=tf.contrib.layers.xavier_initializer(),
+            initializer=tf.compat.v1.keras.initializers.VarianceScaling(scale=1.0, mode="fan_avg", distribution="uniform"),
             activation_fn=tf.nn.elu):
 
     kernel_shape = [filter_width,inputs.get_shape()[-1],output_dim]
 
-    weight = tf.get_variable(name=name+'_w', shape=kernel_shape, dtype=tf.float32, initializer=initializer)
-    bias = tf.get_variable(name=name+'_b', shape=[output_dim], dtype=tf.float32, initializer=tf.constant_initializer(0.0))
-    outputs = tf.nn.conv1d(inputs , weight, stride=stride, padding=padding)
+    weight = tf.compat.v1.get_variable(name=name+'_w', shape=kernel_shape, dtype=tf.float32, initializer=initializer)
+    bias = tf.compat.v1.get_variable(name=name+'_b', shape=[output_dim], dtype=tf.float32, initializer=tf.compat.v1.constant_initializer(0.0))
+    outputs = tf.nn.conv1d(input=inputs , filters=weight, stride=stride, padding=padding)
     outputs = tf.nn.bias_add(outputs, bias)
 
     return activation_fn(outputs)
@@ -55,7 +55,7 @@ def TDNN(inputs,
         conv_out = conv1d(inputs, feature_maps[index], kernel_dim, 'cnn_'+str(kernel_dim), padding='VALID')
         conv_out = tf.expand_dims(conv_out,axis=2)
         #kernel_out = tf.nn.max_pool(conv_out, [1, reduced_length, 1, 1], [1, 1, 1, 1], 'VALID')
-        kernel_out = tf.nn.avg_pool(conv_out,[1,reduced_length,1,1],[1,1,1,1],'VALID')
+        kernel_out = tf.nn.avg_pool2d(input=conv_out,ksize=[1,reduced_length,1,1],strides=[1,1,1,1],padding='VALID')
         outputs.append(tf.squeeze(kernel_out))
 
     return tf.concat(outputs,1)
@@ -74,14 +74,14 @@ def sample3D(probability):
     """
     shape = probability.get_shape().as_list()
     probability = tf.reshape(probability,[-1,shape[-1]])
-    return tf.reshape(tf.multinomial(tf.log(probability),1),[shape[0],shape[1]])
+    return tf.reshape(tf.random.categorical(logits=tf.math.log(probability),num_samples=1),[shape[0],shape[1]])
 
 def sample2D(probability):
-    return tf.squeeze(tf.multinomial(tf.log(probability),1))
+    return tf.squeeze(tf.random.categorical(logits=tf.math.log(probability),num_samples=1))
 
 def get_seq_len(seq):
     #sequence shape: batch_size*sequence_len
     seq = tf.cast(seq,tf.float32)
     seq = tf.sign(seq)
-    seq_len = tf.reduce_sum(seq,axis=1)
+    seq_len = tf.reduce_sum(input_tensor=seq,axis=1)
     return tf.stop_gradient(seq_len)
